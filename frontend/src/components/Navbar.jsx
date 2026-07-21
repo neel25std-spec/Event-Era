@@ -10,10 +10,7 @@ export default function Navbar() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const navLinks = [
-    { to: '/events', label: 'Discover', authRequired: true },
-    { to: '/create', label: 'Create Event', authRequired: true },
-  ];
+  const navLinks = [];
 
   function handleNavClick(link) {
     if (link.authRequired) {
