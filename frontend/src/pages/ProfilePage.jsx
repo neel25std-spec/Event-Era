@@ -79,7 +79,7 @@ export default function ProfilePage() {
     }
   }
 
-  async function handleAvatarUpload(e) {
+  async function handleProfilePicUpload(e) {
     const file = e.target.files?.[0];
     if (!file) return;
     
@@ -87,24 +87,24 @@ export default function ProfilePage() {
     try {
       const res = await uploadAvatar(file);
       setProfile(res.profile);
-      toast.success('Avatar uploaded successfully');
+      toast.success('Profile picture updated!');
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Failed to upload avatar');
+      toast.error(err.response?.data?.error || 'Failed to upload profile picture');
     } finally {
       setAvatarLoading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   }
 
-  async function handleAvatarDelete() {
-    if (!confirm('Are you sure you want to remove your avatar?')) return;
+  async function handleProfilePicDelete() {
+    if (!confirm('Are you sure you want to remove your profile picture?')) return;
     setAvatarLoading(true);
     try {
       const res = await deleteAvatar();
       setProfile(res.profile);
-      toast.success('Avatar removed');
+      toast.success('Profile picture removed');
     } catch (err) {
-      toast.error('Failed to remove avatar');
+      toast.error('Failed to remove profile picture');
     } finally {
       setAvatarLoading(false);
     }
@@ -129,10 +129,18 @@ export default function ProfilePage() {
           flexWrap: 'wrap'
         }}
       >
+        {/* Hidden file input for profile picture */}
+        <input 
+          type="file" 
+          accept="image/jpeg,image/png,image/webp" 
+          style={{ display: 'none' }} 
+          ref={fileInputRef}
+          onChange={handleProfilePicUpload}
+        />
         <div 
           style={{
-            width: '80px',
-            height: '80px',
+            width: '90px',
+            height: '90px',
             borderRadius: '50%',
             background: 'var(--color-yellow-500)',
             border: '3px solid #1a2638',
@@ -142,14 +150,36 @@ export default function ProfilePage() {
             fontSize: '2rem',
             overflow: 'hidden',
             flexShrink: 0,
-            position: 'relative'
+            position: 'relative',
+            cursor: 'pointer',
           }}
+          onClick={() => fileInputRef.current?.click()}
+          title="Click to change profile picture"
         >
           {profile?.avatar_url ? (
-            <img src={profile.avatar_url} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            <img src={profile.avatar_url} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           ) : (
             '👤'
           )}
+          {/* Camera overlay on hover */}
+          <div 
+            className="profile-pic-overlay"
+            style={{
+              position: 'absolute',
+              inset: 0,
+              borderRadius: '50%',
+              background: 'rgba(0,0,0,0.5)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              opacity: 0,
+              transition: 'opacity 0.2s ease',
+            }}
+            onMouseEnter={e => e.currentTarget.style.opacity = 1}
+            onMouseLeave={e => e.currentTarget.style.opacity = 0}
+          >
+            <span style={{ fontSize: '1.5rem' }}>📷</span>
+          </div>
           {avatarLoading && (
             <div style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <div className="spinner" style={{ width: '20px', height: '20px', borderWidth: '2px' }} />
@@ -186,22 +216,46 @@ export default function ProfilePage() {
         <div style={{ background: '#f8fafc', padding: '20px', borderRadius: '4px', border: '2px solid #1a2638', marginBottom: '40px' }}>
           <h3 style={{ fontFamily: 'var(--font-mono)', fontWeight: 'bold', marginBottom: '20px' }}>Edit Profile</h3>
           
-          <div style={{ marginBottom: '20px', display: 'flex', gap: '10px', alignItems: 'center' }}>
-            <input 
-              type="file" 
-              accept="image/jpeg,image/png,image/webp" 
-              style={{ display: 'none' }} 
-              ref={fileInputRef}
-              onChange={handleAvatarUpload}
-            />
-            <button type="button" onClick={() => fileInputRef.current?.click()} className="btn btn--outline" disabled={avatarLoading}>
-              UPLOAD AVATAR
-            </button>
-            {profile?.avatar_url && (
-              <button type="button" onClick={handleAvatarDelete} className="btn btn--ghost" disabled={avatarLoading}>
-                REMOVE AVATAR
-              </button>
-            )}
+          {/* Profile Picture Section */}
+          <div style={{ marginBottom: '20px', display: 'flex', gap: '15px', alignItems: 'center' }}>
+            <div 
+              style={{
+                width: '64px',
+                height: '64px',
+                borderRadius: '50%',
+                background: 'var(--color-yellow-500)',
+                border: '2px solid #1a2638',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '1.5rem',
+                overflow: 'hidden',
+                flexShrink: 0,
+                cursor: 'pointer',
+                position: 'relative',
+              }}
+              onClick={() => fileInputRef.current?.click()}
+              title="Click to change profile picture"
+            >
+              {profile?.avatar_url ? (
+                <img src={profile.avatar_url} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ) : (
+                '👤'
+              )}
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem', fontWeight: 'bold', textTransform: 'uppercase' }}>Profile Picture</span>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button type="button" onClick={() => fileInputRef.current?.click()} className="btn btn--outline" style={{ padding: '4px 10px', fontSize: '0.75rem' }} disabled={avatarLoading}>
+                  CHANGE PHOTO
+                </button>
+                {profile?.avatar_url && (
+                  <button type="button" onClick={handleProfilePicDelete} className="btn btn--ghost" style={{ padding: '4px 10px', fontSize: '0.75rem' }} disabled={avatarLoading}>
+                    REMOVE
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
 
           <form onSubmit={handleEditSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>

@@ -5,6 +5,7 @@ import {
   logout,
   forgotPassword,
   resetPassword,
+  syncProfile,
 } from '../controllers/authController.js';
 
 const router = Router();
@@ -17,5 +18,6 @@ router.post('/forgot-password', forgotPassword);
 // These routes require a valid token
 router.post('/logout', logout);
 router.post('/reset-password', resetPassword);
+router.post('/sync-profile', syncProfile);
 
 export default router;

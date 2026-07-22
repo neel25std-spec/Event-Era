@@ -246,3 +246,65 @@ export async function resetPassword(req, res) {
     res.status(500).json({ error: 'Failed to reset password' });
   }
 }
+
+/**
+ * POST /api/auth/sync-profile
+ * Verifies JWT and ensures a profile exists. Used after OAuth logins.
+ */
+export async function syncProfile(req, res) {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    
+    if (!supabase) {
+      return res.json({ message: 'Profile synced (mock mode)' });
+    }
+
+    if (!token) {
+      return res.status(401).json({ error: 'Authorization token is required' });
+    }
+
+    // Verify the JWT via Supabase
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    // Check if profile exists
+    const { data: existingProfile, error: profileErr } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    if (profileErr) throw profileErr;
+
+    // If no profile exists, create one (useful for Google OAuth first-time logins)
+    if (!existingProfile) {
+      const email = user.email || '';
+      const username = email.split('@')[0] + Math.floor(Math.random() * 1000);
+      const fullName = user.user_metadata?.full_name || null;
+      const avatarUrl = user.user_metadata?.avatar_url || null;
+
+      await supabase.from('profiles').insert({
+        id: user.id,
+        email: email,
+        username: username,
+        full_name: fullName,
+        avatar_url: avatarUrl,
+      });
+      
+      // Upsert into legacy users table as well
+      await supabase.from('users').upsert({
+        id: user.id,
+        email: email,
+        username: username,
+      }, { onConflict: 'id' });
+    }
+
+    res.json({ message: 'Profile synchronized successfully' });
+  } catch (err) {
+    console.error('Sync profile error:', err);
+    res.status(500).json({ error: 'Failed to sync profile' });
+  }
+}

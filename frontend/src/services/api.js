@@ -130,4 +130,11 @@ export async function reverseGeocodeCoords(lat, lng) {
   return data;
 }
 
+// ── Authentication ─────────────────────────────────────────────────────────
+
+export async function syncAuthProfile() {
+  const { data } = await api.post('/auth/sync-profile');
+  return data;
+}
+
 export default api;

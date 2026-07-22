@@ -1,4 +1,16 @@
 import supabase from '../config/supabase.js';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const UPLOADS_DIR = path.join(__dirname, '..', '..', 'uploads', 'avatars');
+
+// Ensure uploads directory exists
+if (!fs.existsSync(UPLOADS_DIR)) {
+  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+}
 
 // ═══════════════════════════════════════════════════════════════════════
 // PROFILE CONTROLLER
@@ -7,6 +19,26 @@ import supabase from '../config/supabase.js';
 
 // Mock profile store for when Supabase is not configured
 const MOCK_PROFILES = {};
+
+/**
+ * Saves an uploaded file to disk and returns the public URL.
+ */
+function saveFileToDisk(userId, file) {
+  const ext = file.mimetype.split('/')[1] === 'jpeg' ? 'jpg' : file.mimetype.split('/')[1];
+  const fileName = `${userId}.${ext}`;
+  const filePath = path.join(UPLOADS_DIR, fileName);
+
+  // Remove any existing profile pics for this user
+  try {
+    const existing = fs.readdirSync(UPLOADS_DIR).filter(f => f.startsWith(userId));
+    existing.forEach(f => fs.unlinkSync(path.join(UPLOADS_DIR, f)));
+  } catch (_) { /* ignore */ }
+
+  fs.writeFileSync(filePath, file.buffer);
+
+  const port = process.env.PORT || 5000;
+  return `http://localhost:${port}/uploads/avatars/${fileName}`;
+}
 
 /**
  * GET /api/profile
@@ -59,6 +91,19 @@ export async function getProfile(req, res) {
     res.json(data);
   } catch (err) {
     console.error('getProfile error:', err);
+    if (err.code === 'PGRST205') {
+      // Table doesn't exist, fallback to mock profile
+      return res.json(MOCK_PROFILES[req.user.id] || {
+        id: req.user.id,
+        email: req.user.email,
+        username: req.user.email.split('@')[0],
+        full_name: null,
+        bio: null,
+        avatar_url: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+    }
     res.status(500).json({ error: 'Failed to fetch profile' });
   }
 }
@@ -150,6 +195,29 @@ export async function updateProfile(req, res) {
     res.json(data);
   } catch (err) {
     console.error('updateProfile error:', err);
+    if (err.code === 'PGRST205') {
+      // Table doesn't exist, fallback to mock profile
+      const { username, full_name, bio } = req.body;
+      const existing = MOCK_PROFILES[req.user.id] || {
+        id: req.user.id,
+        email: req.user.email,
+        username: req.user.email.split('@')[0],
+        full_name: null,
+        bio: null,
+        avatar_url: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      const updated = {
+        ...existing,
+        ...(username !== undefined && { username: username.trim() }),
+        ...(full_name !== undefined && { full_name: full_name.trim() }),
+        ...(bio !== undefined && { bio: bio.trim() }),
+        updated_at: new Date().toISOString(),
+      };
+      MOCK_PROFILES[req.user.id] = updated;
+      return res.json(updated);
+    }
     res.status(500).json({ error: 'Failed to update profile' });
   }
 }
@@ -183,13 +251,13 @@ export async function uploadAvatar(req, res) {
     }
 
     if (!supabase) {
-      const mockUrl = `https://mock-storage.local/avatars/${userId}/avatar.png`;
+      const localUrl = saveFileToDisk(userId, file);
       MOCK_PROFILES[userId] = {
         ...(MOCK_PROFILES[userId] || {}),
-        avatar_url: mockUrl,
+        avatar_url: localUrl,
         updated_at: new Date().toISOString(),
       };
-      return res.json({ avatar_url: mockUrl, message: 'Avatar uploaded (mock mode)' });
+      return res.json({ avatar_url: localUrl, message: 'Profile picture uploaded', profile: MOCK_PROFILES[userId] });
     }
 
     // Determine file extension from mimetype
@@ -240,7 +308,25 @@ export async function uploadAvatar(req, res) {
     res.json({ avatar_url: avatarUrl, message: 'Avatar uploaded successfully', profile });
   } catch (err) {
     console.error('uploadAvatar error:', err);
-    res.status(500).json({ error: 'Failed to upload avatar' });
+    if (err.code === 'PGRST205' || err.statusCode === 404 || err.error === 'Bucket not found') {
+      // Storage bucket or profiles table doesn't exist, fallback to local disk
+      const userId = req.user.id;
+      const localUrl = saveFileToDisk(userId, req.file);
+      const existing = MOCK_PROFILES[userId] || {
+        id: userId,
+        email: req.user.email,
+        username: req.user.email.split('@')[0],
+        full_name: null,
+        bio: null,
+        avatar_url: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      const profile = { ...existing, avatar_url: localUrl, updated_at: new Date().toISOString() };
+      MOCK_PROFILES[userId] = profile;
+      return res.json({ avatar_url: localUrl, message: 'Profile picture uploaded', profile });
+    }
+    res.status(500).json({ error: 'Failed to upload profile picture' });
   }
 }
 
@@ -289,6 +375,26 @@ export async function deleteAvatar(req, res) {
     res.json({ message: 'Avatar deleted successfully', profile });
   } catch (err) {
     console.error('deleteAvatar error:', err);
-    res.status(500).json({ error: 'Failed to delete avatar' });
+    if (err.code === 'PGRST205' || err.statusCode === 404 || err.error === 'Bucket not found') {
+      // Storage bucket or profiles table doesn't exist, fallback to mock
+      const userId = req.user.id;
+      const existing = MOCK_PROFILES[userId];
+      if (existing) {
+        existing.avatar_url = null;
+        existing.updated_at = new Date().toISOString();
+      }
+      const profile = existing || {
+        id: userId,
+        email: req.user.email,
+        username: req.user.email.split('@')[0],
+        full_name: null,
+        bio: null,
+        avatar_url: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      return res.json({ message: 'Profile picture removed', profile });
+    }
+    res.status(500).json({ error: 'Failed to delete profile picture' });
   }
 }

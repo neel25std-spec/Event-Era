@@ -651,6 +651,12 @@ export async function getUserProfileEvents(req, res) {
     res.json({ createdEvents: created, joinedEvents: joined });
   } catch (err) {
     console.error('getUserProfileEvents error:', err);
+    if (err.code === 'PGRST205') {
+      const created = MOCK_EVENTS.filter((e) => e.user_id === req.user.id);
+      const joinedIds = MOCK_ATTENDEES.filter((a) => a.user_id === req.user.id).map((a) => a.event_id);
+      const joined = MOCK_EVENTS.filter((e) => joinedIds.includes(e.id));
+      return res.json({ createdEvents: created, joinedEvents: joined });
+    }
     res.status(500).json({ error: 'Failed to fetch user profile events' });
   }
 }

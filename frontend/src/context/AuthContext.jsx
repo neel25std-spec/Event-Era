@@ -1,5 +1,7 @@
 import { createContext, useContext, useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import supabase from '../services/supabaseClient';
+import { syncAuthProfile } from '../services/api';
 
 const AuthContext = createContext(null);
 
@@ -7,24 +9,46 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     if (!supabase) {
       // Mock mode auth check
       const mockUser = localStorage.getItem('mock_user');
-      if (mockUser) {
+      const sessionAlive = sessionStorage.getItem('session_active');
+      
+      if (mockUser && sessionAlive) {
         setUser(JSON.parse(mockUser));
+      } else if (mockUser && !sessionAlive) {
+        // Browser was closed and reopened — auto sign out
+        localStorage.removeItem('mock_user');
+        localStorage.removeItem('access_token');
+        setUser(null);
       }
       setLoading(false);
       return;
     }
 
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session: s } }) => {
+    supabase.auth.getSession().then(async ({ data: { session: s } }) => {
+      const sessionAlive = sessionStorage.getItem('session_active');
+      
+      if (s && !sessionAlive) {
+        // Browser was closed and reopened — auto sign out
+        await supabase.auth.signOut();
+        localStorage.removeItem('access_token');
+        setSession(null);
+        setUser(null);
+        setLoading(false);
+        return;
+      }
+      
       setSession(s);
       setUser(s?.user ?? null);
       if (s?.access_token) {
         localStorage.setItem('access_token', s.access_token);
+        sessionStorage.setItem('session_active', 'true');
       }
       setLoading(false);
     });
@@ -37,8 +61,26 @@ export function AuthProvider({ children }) {
       setUser(s?.user ?? null);
       if (s?.access_token) {
         localStorage.setItem('access_token', s.access_token);
+        sessionStorage.setItem('session_active', 'true');
+        
+        if (_event === 'SIGNED_IN') {
+          syncAuthProfile().catch(err => {
+            console.error('Failed to sync profile after login:', err);
+          });
+          
+          // Global navigation
+          const from = location.state?.from?.pathname || '/';
+          if (window.location.pathname === '/login' || window.location.pathname === '/signup') {
+            navigate(from, { replace: true });
+          }
+        }
       } else {
         localStorage.removeItem('access_token');
+        sessionStorage.removeItem('session_active');
+        
+        if (_event === 'SIGNED_OUT') {
+          navigate('/login', { replace: true });
+        }
       }
     });
 
@@ -63,6 +105,7 @@ export function AuthProvider({ children }) {
       setUser(newUser);
       localStorage.setItem('mock_user', JSON.stringify(newUser));
       localStorage.setItem('access_token', btoa(JSON.stringify(newUser)));
+      sessionStorage.setItem('session_active', 'true');
       return { data: { user: newUser }, error: null };
     }
     const { data, error } = await supabase.auth.signUp({ email, password });
@@ -88,6 +131,7 @@ export function AuthProvider({ children }) {
       setUser(loggedInUser);
       localStorage.setItem('mock_user', JSON.stringify(loggedInUser));
       localStorage.setItem('access_token', btoa(JSON.stringify(loggedInUser)));
+      sessionStorage.setItem('session_active', 'true');
       return { data: { user: loggedInUser }, error: null };
     }
     const { data, error } = await supabase.auth.signInWithPassword({
@@ -97,15 +141,30 @@ export function AuthProvider({ children }) {
     return { data, error };
   }
 
+  async function signInWithGoogle() {
+    if (!supabase) {
+      return { data: null, error: new Error('Google login requires Supabase to be configured.') };
+    }
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.origin
+      }
+    });
+    return { data, error };
+  }
+
   async function signOut() {
     if (!supabase) {
       setUser(null);
       localStorage.removeItem('mock_user');
       localStorage.removeItem('access_token');
+      sessionStorage.removeItem('session_active');
       return;
     }
     await supabase.auth.signOut();
     localStorage.removeItem('access_token');
+    sessionStorage.removeItem('session_active');
   }
 
   async function forgotPassword(email) {
@@ -126,7 +185,7 @@ export function AuthProvider({ children }) {
     return { data, error };
   }
 
-  const value = { user, session, loading, signUp, signIn, signOut, forgotPassword, updatePassword, isConfigured: !!supabase };
+  const value = { user, session, loading, signUp, signIn, signInWithGoogle, signOut, forgotPassword, updatePassword, isConfigured: !!supabase };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

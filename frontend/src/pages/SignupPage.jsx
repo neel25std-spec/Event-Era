@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
+import GoogleAuthButton from '../components/GoogleAuthButton';
 
 export default function SignupPage() {
   const [email, setEmail] = useState('');
@@ -22,11 +23,17 @@ export default function SignupPage() {
 
     setLoading(true);
     try {
-      const { error } = await signUp(email, password);
+      const { data, error } = await signUp(email, password);
       if (error) throw error;
       
       if (isConfigured) {
-        toast.success('Registration successful! Please check your email.');
+        if (data?.session) {
+          toast.success('Registration successful! Welcome aboard.');
+          // Global onAuthStateChange will handle navigation to home
+        } else {
+          toast.success('Registration successful! Please check your email to verify your account.');
+          navigate('/login');
+        }
       } else {
         toast.success('Mock Registration success! 👋');
         navigate('/');
@@ -154,6 +161,8 @@ export default function SignupPage() {
             {loading ? 'REGISTERING...' : 'SIGN UP 🎉'}
           </button>
         </form>
+
+        <GoogleAuthButton />
 
         <div style={{ textAlign: 'center', marginTop: '24px', fontSize: '0.85rem' }}>
           <span style={{ color: '#64748b' }}>Already have an account? </span>

@@ -62,7 +62,6 @@ export default function Navbar() {
         <div className="navbar-actions">
           {user ? (
             <div className="navbar-user">
-              <span className="navbar-user-email">{user.email}</span>
               <button
                 type="button"
                 className="btn btn--ghost"
@@ -113,13 +112,33 @@ export default function Navbar() {
               {link.label}
             </button>
           ))}
-          {user && (
+          {user ? (
+            <>
+              <Link
+                to="/profile"
+                className="navbar-mobile-link"
+                onClick={() => setMobileOpen(false)}
+              >
+                Profile
+              </Link>
+              <button
+                type="button"
+                className="navbar-mobile-link"
+                onClick={() => {
+                  setMobileOpen(false);
+                  handleSignOut();
+                }}
+              >
+                Sign Out
+              </button>
+            </>
+          ) : (
             <Link
-              to="/profile"
+              to="/login"
               className="navbar-mobile-link"
               onClick={() => setMobileOpen(false)}
             >
-              Profile
+              Sign In
             </Link>
           )}
         </div>

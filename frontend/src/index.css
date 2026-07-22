@@ -380,20 +380,15 @@ button.navbar-mobile-link {
   }
 
   .navbar-user {
-    display: flex;
-    align-items: center;
+    display: none;
   }
 
   .navbar-user-email {
     display: none;
   }
 
-  #sign-in-btn,
-  #sign-out-btn {
-    display: inline-flex;
-    padding: 6px 12px;
-    font-size: 0.75rem;
-    box-shadow: 2px 2px 0px #1a2638;
+  #sign-in-btn {
+    display: none;
   }
 
   .logo-text-event {

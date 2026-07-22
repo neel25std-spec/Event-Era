@@ -15,8 +15,8 @@ import ResetPasswordPage from './pages/ResetPasswordPage';
 
 function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
+    <BrowserRouter>
+      <AuthProvider>
         <div className="app-layout" id="app-root">
           <Navbar />
           <main className="app-main">
@@ -65,8 +65,8 @@ function App() {
             }}
           />
         </div>
-      </BrowserRouter>
-    </AuthProvider>
+      </AuthProvider>
+    </BrowserRouter>
   );
 }
 

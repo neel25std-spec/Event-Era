@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
+import GoogleAuthButton from '../components/GoogleAuthButton';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -25,7 +26,10 @@ export default function LoginPage() {
       if (error) throw error;
       
       toast.success('Logged in successfully! 👋');
-      navigate(from, { replace: true });
+      
+      if (!isConfigured) {
+        navigate(from, { replace: true });
+      }
     } catch (err) {
       console.error('Login error:', err);
       toast.error(err.message || 'Authentication failed. Please check credentials.');
@@ -207,6 +211,8 @@ export default function LoginPage() {
             {loading ? 'LOGGING IN...' : 'SIGN IN 🚀'}
           </button>
         </form>
+
+        <GoogleAuthButton />
 
         <div style={{ textAlign: 'center', marginTop: '24px', fontSize: '0.85rem' }}>
           <span style={{ color: '#64748b' }}>Don't have an account? </span>
