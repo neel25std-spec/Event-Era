@@ -527,25 +527,49 @@ export async function getEventComments(req, res) {
       return res.json(comments);
     }
 
-    // Join with profiles to get username and avatar_url, fall back to users for email
-    const { data, error } = await supabase
+    // 1. Fetch comments from the comments table (NO joins)
+    const { data: comments, error: commentsError } = await supabase
       .from('comments')
-      .select('id, comment, created_at, user_id, users(email), profiles:user_id(username, avatar_url)')
+      .select('id, comment, created_at, user_id')
       .eq('event_id', id)
       .order('created_at', { ascending: false });
 
-    if (error) throw error;
+    if (commentsError) throw commentsError;
 
-    // Map nested join results to flat fields with profile info
-    const formatted = data.map((c) => ({
-      id: c.id,
-      comment: c.comment,
-      created_at: c.created_at,
-      user_id: c.user_id,
-      user_email: c.users?.email || 'unknown@user.com',
-      username: c.profiles?.username || c.users?.email?.split('@')[0] || 'anonymous',
-      avatar_url: c.profiles?.avatar_url || null,
-    }));
+    if (!comments || comments.length === 0) {
+      return res.json([]);
+    }
+
+    // 2. Fetch profiles for these comments
+    const userIds = [...new Set(comments.map((c) => c.user_id))];
+    const { data: profiles, error: profilesError } = await supabase
+      .from('profiles')
+      .select('id, username, email, avatar_url')
+      .in('id', userIds);
+
+    if (profilesError) throw profilesError;
+
+    // Create a lookup map for profiles
+    const profileMap = {};
+    if (profiles) {
+      for (const p of profiles) {
+        profileMap[p.id] = p;
+      }
+    }
+
+    // 3. Merge comments with profile data
+    const formatted = comments.map((c) => {
+      const p = profileMap[c.user_id] || {};
+      return {
+        id: c.id,
+        comment: c.comment,
+        created_at: c.created_at,
+        user_id: c.user_id,
+        username: p.username || 'anonymous',
+        user_email: p.email || 'unknown@user.com',
+        avatar_url: p.avatar_url || null
+      };
+    });
 
     res.json(formatted);
   } catch (err) {
