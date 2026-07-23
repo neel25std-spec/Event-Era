@@ -160,15 +160,19 @@ export default function EventDetailPage() {
   }
 
   const eventDate = new Date(event.date);
+  const userTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  
   const dateStr = eventDate.toLocaleDateString('en-US', {
     weekday: 'long',
     year: 'numeric',
     month: 'long',
     day: 'numeric',
+    timeZone: userTimeZone
   });
   const timeStr = eventDate.toLocaleTimeString('en-US', {
     hour: 'numeric',
     minute: '2-digit',
+    timeZone: userTimeZone
   });
 
   const spotsLeft = event.capacity

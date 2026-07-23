@@ -6,15 +6,21 @@ import { reverseGeocodeCoords } from '../services/api';
 const EVENT_TYPES = ['free food', 'entertainment', 'community'];
 const FOOD_TYPES = ['pizza', 'tacos', 'sandwiches', 'vegan', 'baked goods', 'other'];
 
+// Helper to convert UTC string to local datetime-local format
+function toLocalDatetimeString(isoString) {
+  if (!isoString) return '';
+  const d = new Date(isoString);
+  const pad = (n) => n.toString().padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 export default function EventForm({ onSubmit, initialData = {}, isLoading = false }) {
   const [form, setForm] = useState({
     title: initialData.title || '',
     description: initialData.description || '',
     event_type: initialData.event_type || 'free food',
     food_type: initialData.food_type || '',
-    date: initialData.date
-      ? new Date(initialData.date).toISOString().slice(0, 16)
-      : '',
+    date: toLocalDatetimeString(initialData.date),
     location_name: initialData.location_name || '',
     organizer_name: initialData.organizer_name || '',
     organizer_contact: initialData.organizer_contact || '',
@@ -122,6 +128,7 @@ export default function EventForm({ onSubmit, initialData = {}, isLoading = fals
     
     onSubmit({
       ...form,
+      date: new Date(form.date).toISOString(),
       latitude: parseFloat(form.latitude),
       longitude: parseFloat(form.longitude),
       capacity: form.capacity !== '' ? parseInt(form.capacity, 10) : null,

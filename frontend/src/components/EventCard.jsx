@@ -18,14 +18,18 @@ export default function EventCard({ event }) {
   const typeIcon = TYPE_ICONS[event.event_type] || '📌';
 
   const eventDate = new Date(event.date);
+  const userTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  
   const dateStr = eventDate.toLocaleDateString('en-US', {
     weekday: 'short',
     month: 'short',
     day: 'numeric',
+    timeZone: userTimeZone
   });
   const timeStr = eventDate.toLocaleTimeString('en-US', {
     hour: 'numeric',
     minute: '2-digit',
+    timeZone: userTimeZone
   });
 
   const spotsLeft = event.capacity
